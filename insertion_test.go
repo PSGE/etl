@@ -36,7 +36,7 @@ func (suite *StreamerTestSuite) SetupTest() {
 		Email:          os.Getenv("EMAIL"),
 		PEM:            []byte(os.Getenv("PEM")),
 		BaseURL:        suite.server.URL,
-		InsertInterval: time.Millisecond,
+		CacheInterval:  time.Millisecond,
 	})
 	log.Check(err)
 
