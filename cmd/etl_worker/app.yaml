@@ -1,2 +1,7 @@
 runtime: go
+api_version: go1
 service: etl-parser
+
+handlers:
+- url: /.*
+  script: _go_app

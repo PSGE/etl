@@ -39,7 +39,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "ok")
 }
 
-func main() {
+func init() {
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/worker", worker)
 	http.HandleFunc("/_ah/health", healthCheckHandler)
