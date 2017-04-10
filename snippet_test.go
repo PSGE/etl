@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	//"cloud.google.com/go/storage"
-	"github.com/yachang/etl/testutil"
+	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	rawbq "google.golang.org/api/bigquery/v2"
 )
+
+var ProjectID = "mlab-sandbox"
 
 func init() {
 	// Workaround for Travis:
@@ -35,11 +36,9 @@ func init() {
 }
 
 func TestAll(t *testing.T) {
-	tc := testutil.SystemTest(t)
 	ctx := context.Background()
-
-        fmt.Println("project ID: " + tc.ProjectID)
-	client, err := bigquery.NewClient(ctx, tc.ProjectID)
+	
+        client, err := bigquery.NewClient(ctx, ProjectID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +90,6 @@ func TestAll(t *testing.T) {
 }
 
 func deleteDataset(t *testing.T, ctx context.Context, datasetID string) {
-	tc := testutil.SystemTest(t)
 	hc, err := google.DefaultClient(ctx, rawbq.CloudPlatformScope)
 	if err != nil {
 		t.Errorf("DefaultClient: %v", err)
@@ -100,19 +98,17 @@ func deleteDataset(t *testing.T, ctx context.Context, datasetID string) {
 	if err != nil {
 		t.Errorf("bigquery.New: %v", err)
 	}
-	call := s.Datasets.Delete(tc.ProjectID, datasetID)
+	call := s.Datasets.Delete(ProjectID, datasetID)
 	call.DeleteContents(true)
 	call.Context(ctx)
 	if err := call.Do(); err != nil {
 		t.Errorf("deleteDataset(%q): %v", datasetID, err)
 	}
 }
-/*
-func TestImportExport(t *testing.T) {
-	tc := testutil.EndToEndTest(t)
-	ctx := context.Background()
 
-	client, err := bigquery.NewClient(ctx, tc.ProjectID)
+func TestImportExport(t *testing.T) {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, ProjectID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +138,7 @@ func TestImportExport(t *testing.T) {
 	bucket := fmt.Sprintf("golang-example-bigquery-importexport-bucket-%d", time.Now().Unix())
 	const object = "values.csv"
 
-	if err := storageClient.Bucket(bucket).Create(ctx, tc.ProjectID, nil); err != nil {
+	if err := storageClient.Bucket(bucket).Create(ctx, ProjectID, nil); err != nil {
 		t.Fatalf("cannot create bucket: %v", err)
 	}
 
@@ -159,4 +155,4 @@ func TestImportExport(t *testing.T) {
 	if err := storageClient.Bucket(bucket).Delete(ctx); err != nil {
 		t.Errorf("failed to cleanup the GCS bucket: %v", err)
 	}
-} */
+}
