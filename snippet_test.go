@@ -47,14 +47,16 @@ func TestAll(t *testing.T) {
 	if err := createDataset(client, datasetID); err != nil {
 		t.Errorf("failed to create dataset: %v", err)
 	}
+
 	if err := listDatasets(client); err != nil {
 		t.Errorf("failed to create dataset: %v", err)
 	}
-
+        fmt.Println(datasetID + " created.")
 	tableID := fmt.Sprintf("golang_example_table_%d", time.Now().Unix())
 	if err := createTable(client, datasetID, tableID); err != nil {
 		t.Errorf("failed to create table: %v", err)
 	}
+        fmt.Println(tableID+ " created.")
 	buf := &bytes.Buffer{}
 	if err := listTables(client, buf, datasetID); err != nil {
 		t.Errorf("failed to list tables: %v", err)
@@ -76,17 +78,20 @@ func TestAll(t *testing.T) {
 	}
 
 	dstTableID := fmt.Sprintf("golang_example_tabledst_%d", time.Now().Unix())
+        fmt.Println("copy to table ID: " + dstTableID)
 	if err := copyTable(client, datasetID, tableID, dstTableID); err != nil {
 		t.Errorf("failed to copy table: %v", err)
 	}
 	if err := deleteTable(client, datasetID, tableID); err != nil {
 		t.Errorf("failed to delete table: %v", err)
 	}
+        fmt.Println(tableID + " deleted.")
 	if err := deleteTable(client, datasetID, dstTableID); err != nil {
 		t.Errorf("failed to delete table: %v", err)
 	}
-
+        fmt.Println(dstTableID + " deleted.")
 	deleteDataset(t, ctx, datasetID)
+        fmt.Println(datasetID + " deleted.")
 }
 
 func deleteDataset(t *testing.T, ctx context.Context, datasetID string) {
@@ -107,6 +112,7 @@ func deleteDataset(t *testing.T, ctx context.Context, datasetID string) {
 }
 
 func TestImportExport(t *testing.T) {
+        fmt.Println("==============================================")
 	ctx := context.Background()
 	client, err := bigquery.NewClient(ctx, ProjectID)
 	if err != nil {
@@ -122,6 +128,7 @@ func TestImportExport(t *testing.T) {
 	if err := createDataset(client, datasetID); err != nil {
 		t.Errorf("failed to create dataset: %v", err)
 	}
+        fmt.Println(datasetID + " created.")
 	schema := bigquery.Schema{
 		&bigquery.FieldSchema{Name: "Year", Type: bigquery.IntegerFieldType},
 		&bigquery.FieldSchema{Name: "City", Type: bigquery.StringFieldType},
@@ -129,6 +136,7 @@ func TestImportExport(t *testing.T) {
 	if err := client.Dataset(datasetID).Table(tableID).Create(ctx, schema); err != nil {
 		t.Errorf("failed to create dataset: %v", err)
 	}
+        fmt.Println(tableID + " created.")
 	defer deleteDataset(t, ctx, datasetID)
 
 	if err := importFromFile(client, datasetID, tableID, "testdata/olympics.csv"); err != nil {
@@ -141,12 +149,12 @@ func TestImportExport(t *testing.T) {
 	if err := storageClient.Bucket(bucket).Create(ctx, ProjectID, nil); err != nil {
 		t.Fatalf("cannot create bucket: %v", err)
 	}
-
+        fmt.Println(bucket + " created.")
 	gcsURI := fmt.Sprintf("gs://%s/%s", bucket, object)
 	if err := exportToGCS(client, datasetID, tableID, gcsURI); err != nil {
 		t.Errorf("failed to export to %v: %v", gcsURI, err)
 	}
-
+        
 	// Cleanup the bucket and object.
 	if err := storageClient.Bucket(bucket).Object(object).Delete(ctx); err != nil {
 		t.Errorf("failed to cleanup the GCS object: %v", err)
@@ -155,4 +163,5 @@ func TestImportExport(t *testing.T) {
 	if err := storageClient.Bucket(bucket).Delete(ctx); err != nil {
 		t.Errorf("failed to cleanup the GCS bucket: %v", err)
 	}
+        fmt.Println(bucket + " deleted.")
 }
