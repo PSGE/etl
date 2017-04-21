@@ -19,7 +19,7 @@ import (
 //                       Disco Parser
 //=====================================================================================
 type PortStats struct {
-	Samples []struct { //    []Sample `json: "sample"`
+	Sample []struct { //    []Sample `json: "sample"`
 		Timestamp int64   `json:"timestamp, int64"`
 		Value     float32 `json:"value, float32"`
 	} `json:"sample"`
@@ -32,6 +32,7 @@ type PortStats struct {
 // TODO(dev) add tests
 type DiscoParser struct {
 	inserter intf.Inserter
+	// We override ParseAndInsert
 	NullParser
 }
 
@@ -66,7 +67,11 @@ func (dp *DiscoParser) ParseAndInsert(meta map[string]bigquery.Value, testName s
 		}
 		err = dp.inserter.InsertRow(ps)
 		if err != nil {
-			log.Printf("disco.insert %v", err)
+			switch t := err.(type) {
+			case bigquery.PutMultiError:
+				log.Printf(t[0].Error())
+			default:
+			}
 			return err
 		}
 	}
