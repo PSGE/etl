@@ -69,7 +69,7 @@ func (dp *DiscoParser) ParseAndInsert(meta map[string]bigquery.Value, testName s
 		if err != nil {
 			switch t := err.(type) {
 			case bigquery.PutMultiError:
-				log.Printf(t[0].Error())
+				log.Printf("disco.ParseAndInsert: %v\n", t[0].Error())
 			default:
 			}
 			return err

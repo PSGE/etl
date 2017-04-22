@@ -2,6 +2,7 @@ package parser_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -27,11 +28,13 @@ func (ti *PrintingInserter) Flush() error {
 	return nil
 }
 
-func TestXxx(t *testing.T) {
+func TestJSONParsing(t *testing.T) {
 	var test []byte = []byte(`{"sample": [{"timestamp": 69850, "value": 0.0}, {"timestamp": 69860, "value": 0.0}], "metric": "switch.multicast.local.rx", "hostname": "mlab4.sea05.measurement-lab.org", "experiment": "s1.sea05.measurement-lab.org"}
 {"sample": [{"timestamp": 69850, "value": 0.0}, {"timestamp": 69860, "value": 0.0}], "metric": "switch.multicast.local.rx", "hostname": "mlab4.sea05.measurement-lab.org", "experiment": "s1.sea05.measurement-lab.org"}`)
 
-	ins, err := fake.NewFakeInserter(intf.InserterParams{"mlab-sandbox", "mlab_sandbox", "disco", 10 * time.Second, 1})
+	uploader := fake.FakeUploader{}
+	// This kind of inserter, when given a struct, ...
+	ins, err := bq.NewInserter(intf.InserterParams{"mlab-sandbox", "mlab_sandbox", "disco", 10 * time.Second, 1}, &uploader)
 
 	var parser intf.Parser = parser.NewDiscoParser(ins)
 
@@ -41,6 +44,9 @@ func TestXxx(t *testing.T) {
 	// TODO - check something
 
 	if err != nil {
+		log.Printf("%v\n", uploader.Request)
+		log.Printf("%d Rows\n", len(uploader.Rows))
+		log.Printf("%v\n", uploader.Rows[0])
 		t.Error(err)
 	}
 }

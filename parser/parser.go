@@ -11,6 +11,15 @@ import (
 	"github.com/m-lab/etl/etl"
 )
 
+type Saver struct {
+	Values map[string]bigquery.Value
+}
+
+// TODO(dev) - Figure out if this can use a pointer receiver.
+func (s Saver) Save() (row map[string]bigquery.Value, insertID string, err error) {
+	return s.Values, "", nil
+}
+
 //=====================================================================================
 //                       Parser implementations
 //=====================================================================================
@@ -25,15 +34,6 @@ func (np *NullParser) ParseAndInsert(meta map[string]bigquery.Value, testName st
 
 func (np *NullParser) TableName() string {
 	return "null-table"
-}
-
-type FileNameSaver struct {
-	Values map[string]bigquery.Value
-}
-
-// TODO(dev) - Figure out if this can use a pointer receiver.
-func (fns FileNameSaver) Save() (row map[string]bigquery.Value, insertID string, err error) {
-	return fns.Values, "", nil
 }
 
 //------------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ func (tp *TestParser) ParseAndInsert(meta map[string]bigquery.Value, testName st
 		values[k] = v
 	}
 	values["testname"] = testName
-	return tp.inserter.InsertRow(FileNameSaver{values})
+	return tp.inserter.InsertRow(Saver{values})
 }
 
 func (tp *TestParser) TableName() string {
