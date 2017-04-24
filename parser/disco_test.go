@@ -14,6 +14,10 @@ import (
 	"github.com/m-lab/etl/parser"
 )
 
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
+
 // PrintingInserter prints out the items passed in.
 // Inject into Parser for testing.
 type PrintingInserter struct {
@@ -30,15 +34,17 @@ func (ti *PrintingInserter) Flush() error {
 
 func TestJSONParsing(t *testing.T) {
 	var test []byte = []byte(`{"sample": [{"timestamp": 69850, "value": 0.0}, {"timestamp": 69860, "value": 0.0}], "metric": "switch.multicast.local.rx", "hostname": "mlab4.sea05.measurement-lab.org", "experiment": "s1.sea05.measurement-lab.org"}
-{"sample": [{"timestamp": 69850, "value": 0.0}, {"timestamp": 69860, "value": 0.0}], "metric": "switch.multicast.local.rx", "hostname": "mlab4.sea05.measurement-lab.org", "experiment": "s1.sea05.measurement-lab.org"}`)
+{"sample": [{"timestamp": 69870, "value": 0.0}, {"timestamp": 69880, "value": 0.0}], "metric": "switch.multicast.local.rx", "hostname": "mlab1.sea05.measurement-lab.org", "experiment": "s1.sea05.measurement-lab.org"}`)
 
 	uploader := fake.FakeUploader{}
 	// This kind of inserter, when given a struct, ...
-	ins, err := bq.NewInserter(intf.InserterParams{"mlab-sandbox", "mlab_sandbox", "disco", 10 * time.Second, 1}, &uploader)
+	ins, err := bq.NewInserter(intf.InserterParams{"mlab-sandbox", "mlab_sandbox", "disco_test", 10 * time.Second, 5}, &uploader)
 
 	var parser intf.Parser = parser.NewDiscoParser(ins)
 
 	meta := make(map[string]bigquery.Value)
+	err = parser.ParseAndInsert(meta, "testName", test)
+	err = parser.ParseAndInsert(meta, "testName", test)
 	err = parser.ParseAndInsert(meta, "testName", test)
 
 	// TODO - check something
