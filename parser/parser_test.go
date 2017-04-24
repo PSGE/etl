@@ -55,6 +55,6 @@ func foobar(vs bigquery.ValueSaver) {
 }
 
 func TestSaverInterface(t *testing.T) {
-	fns := parser.FileNameSaver{map[string]bigquery.Value{"filename": "foobar"}}
+	fns := parser.Saver{map[string]bigquery.Value{"filename": "foobar"}}
 	foobar(&fns)
 }
