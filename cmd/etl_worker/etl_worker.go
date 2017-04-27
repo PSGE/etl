@@ -101,9 +101,10 @@ func getInserter(dt etl.DataType, fake bool) (etl.Inserter, error) {
 func getParser(dt etl.DataType, ins etl.Inserter) etl.Parser {
 	switch dt {
 	case etl.NDTData:
-		// TODO - substitute appropriate parsers here and below.
-		return parser.NewTestParser(ins)
+		// TODO - eliminate need for "/mnt/tmpfs"
+		return parser.NewNDTParser(ins, etl.TableNames[etl.NDTData], "/mnt/tmpfs")
 	case etl.SSData:
+		// TODO - substitute appropriate parsers here and below.
 		return parser.NewTestParser(ins)
 	case etl.PTData:
 		return parser.NewTestParser(ins)
