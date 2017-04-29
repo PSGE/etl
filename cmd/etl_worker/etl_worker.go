@@ -2,7 +2,6 @@
 package main
 
 import (
-	"sync/atomic"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/m-lab/etl/bq"
@@ -94,7 +94,7 @@ func getDataType(fn string) etl.DataType {
 // TODO move to another module.
 func getInserter(dt etl.DataType, fake bool) (etl.Inserter, error) {
 	return bq.NewInserter(
-		etl.InserterParams{"mlab_sandbox", etl.TableNames[dt], 60 * time.Second, 500}, nil)
+		etl.InserterParams{"mlab_sandbox", etl.TableNames[dt], 600 * time.Second, 500}, nil)
 }
 
 // TODO move this to another module
