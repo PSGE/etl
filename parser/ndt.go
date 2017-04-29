@@ -34,13 +34,22 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		// Ignoring non-snaplog file.
 		return nil
 	}
+
+	// Record the file size.
+	metrics.FileSizeHistogram.Observe(float64(len(rawSnapLog)))
+	if len(rawSnapLog) > 20000000 {
+		metrics.FileSizeCounter.WithLabelValues("1").Inc()
+		// Do not process this file because it is too large.
+		return nil
+	} else {
+		metrics.FileSizeCounter.WithLabelValues("0").Inc()
+	}
+
 	tmpFile, err := ioutil.TempFile(n.tmpDir, "snaplog-")
 	if err != nil {
 		log.Printf("Failed to create tmpfile for: %s\n", testName)
 		return err
 	}
-	// Record the file size.
-	metrics.FileSizeHistogram.Observe(float64(len(rawSnapLog)))
 	c := 0
 	for count := 0; count < len(rawSnapLog); count += c {
 		c, err = tmpFile.Write(rawSnapLog)
