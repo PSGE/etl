@@ -1625,8 +1625,17 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
     if(fscanf(log->fp, "%79s[^\n]", tmpbuf) == EOF) {
 	return EOF;
     }
-    while( (fgetc(log->fp)) != '\n' )
-        ;    // Cleanup the line
+    //while( (fgetc(log->fp)) != '\n' )
+    //    ;    // Cleanup the line
+    while(1) {
+      c = fgetc(log->fp);
+      if (c == '\n') {
+        break;
+      } else if (c == EOF) {
+        return EOF;
+      }
+    }
+    // Cleanup the line
 
     if( strcmp(tmpbuf,BEGIN_SNAP_DATA) != 0 ){
         web100_errno = WEB100_ERR_FILE; 
