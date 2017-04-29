@@ -128,6 +128,18 @@ var (
 			},
 		},
 	)
+
+	FileSizeCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "etl_worker_snaplog_count",
+			Help: "Number of snaplog files processed and whether they are big.",
+		},
+		[]string{"skipped"},
+	)
+
+	// A histogram of worker processing times. The buckets should use
+	// periods that are intuitive for people.
+	//
 )
 
 // DurationHandler wraps the call of an inner http.HandlerFunc and records the runtime.
