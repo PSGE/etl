@@ -2,7 +2,6 @@
 package main
 
 import (
-	"sync/atomic"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/m-lab/etl/bq"
@@ -101,8 +101,7 @@ func getInserter(dt etl.DataType, fake bool) (etl.Inserter, error) {
 func getParser(dt etl.DataType, ins etl.Inserter) etl.Parser {
 	switch dt {
 	case etl.NDTData:
-		// TODO - eliminate need for "/mnt/tmpfs"
-		return parser.NewNDTParser(ins, etl.TableNames[etl.NDTData], "/mnt/tmpfs")
+		return parser.NewNDTParser(ins, etl.TableNames[etl.NDTData])
 	case etl.SSData:
 		// TODO - substitute appropriate parsers here and below.
 		return parser.NewTestParser(ins)
