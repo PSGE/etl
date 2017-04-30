@@ -1520,6 +1520,10 @@ web100_log_open_read(char *logname)
     }
 
     while ((c = fgetc(log->fp)) != '\0') {
+       if (c == EOF) {
+         web100_errno = WEB100_ERR_HEADER;
+         goto Cleanup;
+       }
        	fputc(c, header);
     }
 
