@@ -77,6 +77,7 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	// Open the file we created above.
 	w, err := web100.Open(tmpFile.Name(), legacyNames)
 	if err != nil {
+		log.Printf("error: Open(%s): %s\n", tmpFile.Name(), err)
 		return err
 	}
 	defer w.Close()
