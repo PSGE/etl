@@ -218,8 +218,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	err = tsk.ProcessAllTests()
 	if err != nil {
 		metrics.TaskCount.WithLabelValues("parserName", "InternalServerError").Inc()
-		log.Printf("Error Processing Tests:  %v", err)
-		fmt.Fprintf(w, `{"message": "Error in ProcessAllTests"}`)
+		log.Printf("Error Processing Tests in %s: %v", fn, err)
+		fmt.Fprintf(w, `{"message": "Error in ProcessAllTests %s"}`, fn)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 		// TODO - anything better we could do here?
