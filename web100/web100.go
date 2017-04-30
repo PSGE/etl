@@ -56,6 +56,7 @@ func Open(filename string, legacyNames map[string]string) (*Web100, error) {
 	// TODO(prod): do not require reading from a file. Accept a byte array.
 	log := C.web100_log_open_read(c_filename)
 	if log == nil {
+		web100Lock.Unlock()
 		return nil, fmt.Errorf(C.GoString(C.web100_strerror(C.web100_errno)))
 	}
 
