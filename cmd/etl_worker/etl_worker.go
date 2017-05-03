@@ -98,9 +98,10 @@ var inFlight int32
 // ** So we probably want MC/MI > MW/2, to prevent starvation.
 //
 // For now, assuming:
-//    MC: 200,  MI: 20, MW: 15
+//    MC: 240,  MI: 20, MW: 15
+//    MC: 180,  MI: 20, MW: 10
 func shouldThrottle() bool {
-	if atomic.AddInt32(&inFlight, 1) > 15 {
+	if atomic.AddInt32(&inFlight, 1) > 10 {
 		atomic.AddInt32(&inFlight, -1)
 		return true
 	}
@@ -109,6 +110,10 @@ func shouldThrottle() bool {
 
 func decrementInFlight() {
 	atomic.AddInt32(&inFlight, -1)
+}
+
+func warmupHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, `{"message": "Success"}`)
 }
 
 func worker(w http.ResponseWriter, r *http.Request) {
@@ -209,8 +214,7 @@ func worker(w http.ResponseWriter, r *http.Request) {
 
 	err = tsk.ProcessAllTests()
 
-	metrics.WorkerState.WithLabelValues("finish").Inc()
-	defer metrics.WorkerState.WithLabelValues("finish").Dec()
+	// Currently this is always a Flush error.
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "TaskError").Inc()
 		log.Printf("Error Processing Tests:  %v", err)
@@ -251,6 +255,7 @@ func main() {
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/worker", metrics.DurationHandler("generic", worker))
 	http.HandleFunc("/_ah/health", healthCheckHandler)
+	http.HandleFunc("/_ah/warmup", warmupHandler)
 
 	// Enable block profiling
 	runtime.SetBlockProfileRate(1000000) // One event per msec.

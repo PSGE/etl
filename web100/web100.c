@@ -83,6 +83,7 @@ const char* const web100_sys_errlist[] = {
     "file read/write error G",             /* WEB100_ERR_FILE_G */
     "missing log header",                  /* WEB100_ERR_LOG_HEADER */
     "missing snaplog header",              /* WEB100_ERR_MISSING_SNAP_MAGIC (20) */
+    "missing end of header",               /* WEB100_ERR_END_OF_HEADER */
 };
 
 /*
@@ -1540,7 +1541,7 @@ web100_log_open_read(char *logname, int *w_errno)
     }
 
     if (strncmp(tmpbuf, END_OF_HEADER_MARKER, strlen(END_OF_HEADER_MARKER)) != 0 ) {
-	*w_errno = WEB100_ERR_FILE_C;
+	*w_errno = WEB100_ERR_END_OF_HEADER;
        	goto Cleanup;
     }
 
@@ -1640,11 +1641,14 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
         if (c == '\n') {
             break;
         } else if (c == EOF) {
+            // TODO - should probably return an error here, probably
+            // MISSING_SNAP_MAGIC
             return EOF;
         }
     }
-    // Cleanup the line
+    // Cleanup the line (???)
 
+    // At this point, we have found a linefeed (\n).
     if( strcmp(tmpbuf,BEGIN_SNAP_DATA) != 0 ){
         return WEB100_ERR_MISSING_SNAP_MAGIC;
     }

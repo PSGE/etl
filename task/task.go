@@ -52,7 +52,13 @@ func (tt *Task) ProcessAllTests() error {
 			}
 			// TODO(dev) Handle this error properly!
 			// TODO - fix dataType
+			// We are seeing these very rarely, maybe 1 per hour.
 			metrics.TaskCount.WithLabelValues("NDT", "NonEOFError").Inc()
+			// TODO!! We are seeing A LOT of these.
+			// Example:
+			// filename:gs://m-lab-sandbox/ndt/2016/04/10/20160410T000000Z-mlab1-ord02-ndt-0002.tgz
+			// files:666 duration:1m47.571825351s
+			// err:stream error: stream ID 801; INTERNAL_ERROR
 			log.Printf("filename:%s files:%d duration:%v err:%v",
 				tt.meta["filename"], files, time.Since(tt.meta["parse_time"].(time.Time)), err)
 			break
