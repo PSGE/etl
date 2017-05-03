@@ -67,20 +67,22 @@ const char* const web100_sys_errlist[] = {
     "unsupported agent type",              /* WEB100_ERR_AGENT_TYPE */
     "no memory",                           /* WEB100_ERR_NOMEM */
     "connection not found",                /* WEB100_ERR_NOCONNECTION */
-    "invalid arguments",                   /* WEB100_ERR_INVAL */
+    "invalid arguments",                   /* WEB100_ERR_INVAL (5) */
     "could not parse " WEB100_HEADER_FILE, /* WEB100_ERR_HEADER */
     "variable not found",                  /* WEB100_ERR_NOVAR */
     "group not found",                     /* WEB100_ERR_NOGROUP */
     "socket operation failed",             /* WEB100_ERR_SOCK */
-    "unexpected error due to kernel version mismatch", /* WEB100_ERR_KERNVER */
-    "truncated snapshot data",              /* WEB100_ERR_FILE_TRUNCATED_SNAP_DATA */
-    "file read/write error A",               /* WEB100_ERR_FILE_A */
-    "file read/write error B",               /* WEB100_ERR_FILE_B */
-    "file read/write error C",               /* WEB100_ERR_FILE_C */
-    "file read/write error D",               /* WEB100_ERR_FILE_D */
-    "file read/write error E",               /* WEB100_ERR_FILE_E */
-    "file read/write error F",               /* WEB100_ERR_FILE_F */
-    "file read/write error G",               /* WEB100_ERR_FILE_G */
+    "unexpected error due to kernel version mismatch", /* WEB100_ERR_KERNVER (10) */
+    "truncated snapshot data",             /* WEB100_ERR_FILE_TRUNCATED_SNAP_DATA */
+    "file read/write error A",             /* WEB100_ERR_FILE_A */
+    "file read/write error B",             /* WEB100_ERR_FILE_B */
+    "file read/write error C",             /* WEB100_ERR_FILE_C */
+    "file read/write error D",             /* WEB100_ERR_FILE_D (15) */
+    "file read/write error E",             /* WEB100_ERR_FILE_E */
+    "file read/write error F",             /* WEB100_ERR_FILE_F */
+    "file read/write error G",             /* WEB100_ERR_FILE_G */
+    "missing log header",                  /* WEB100_ERR_LOG_HEADER */
+    "missing snaplog header",              /* WEB100_ERR_MISSING_SNAP_MAGIC (20) */
 };
 
 /*
@@ -390,7 +392,7 @@ refresh_connections(web100_agent *agent)
         }
 
         if ((var = web100_var_find(spec_gp, "LocalAddress", &w_errno)) == NULL)
-            return WEB100_ERR_FILE_B;  // ??? Use w_errno?
+            return w_errno;
         w_errno = web100_raw_read(var, cp, buf);
         if (w_errno != WEB100_ERR_SUCCESS) {
             return w_errno;
@@ -401,7 +403,7 @@ refresh_connections(web100_agent *agent)
             memcpy(&cp->spec_v6.src_addr, buf, 16);
 
         if ((var = web100_var_find(spec_gp, addr_name, &w_errno)) == NULL)
-            return WEB100_ERR_FILE_C;  // ??? Return w_errno?
+            return w_errno;
         w_errno = web100_raw_read(var, cp, buf);
         if (w_errno != WEB100_ERR_SUCCESS)
             return w_errno;
@@ -411,17 +413,17 @@ refresh_connections(web100_agent *agent)
             memcpy(&cp->spec_v6.dst_addr, buf, 16);
 
         if ((var = web100_var_find(spec_gp, "LocalPort", &w_errno)) == NULL)
-            return WEB100_ERR_FILE_D;  // ?? w_errno?
+            return w_errno;
         dst = (cp->addrtype == WEB100_ADDRTYPE_IPV4) ? &cp->spec.src_port : &cp->spec_v6.src_port;
         w_errno = web100_raw_read(var, cp, dst);
         if (w_errno != WEB100_ERR_SUCCESS)
             return w_errno;
 
         if ((var = web100_var_find(spec_gp, port_name, &w_errno)) == NULL)
-            return WEB100_ERR_FILE_E;  // w_errno?
+            return w_errno;
         dst = (cp->addrtype == WEB100_ADDRTYPE_IPV4) ? &cp->spec.dst_port : &cp->spec_v6.dst_port;
         w_errno = web100_raw_read(var, cp, dst);
-        if (w_errno != WEB100_ERR_SUCCESS) 
+        if (w_errno != WEB100_ERR_SUCCESS)
             return w_errno;
     }
 
@@ -628,7 +630,10 @@ web100_agent_find_var_and_group(web100_agent* agent, const char* name,
 
     int w_errno;  // Not actually used.
     g = web100_group_head(agent, &w_errno);
-    // TODO - use w_errno?
+    // Consider adding custom error message here?
+    if (w_errno != WEB100_ERR_SUCCESS)
+        return w_errno;
+
     while (g) {
         web100_var* v = web100_var_find(g, name, &w_errno);
         if (v) {
@@ -1508,7 +1513,7 @@ web100_log_open_read(char *logname, int *w_errno)
     }
 
     if ((header = fopen("./log_header", "w+")) == NULL) {
-	*w_errno = WEB100_ERR_FILE_B;
+	*w_errno = WEB100_ERR_LOG_HEADER;
 	goto Cleanup;
     }
 
@@ -1641,7 +1646,7 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
     // Cleanup the line
 
     if( strcmp(tmpbuf,BEGIN_SNAP_DATA) != 0 ){
-        return WEB100_ERR_FILE_B;
+        return WEB100_ERR_MISSING_SNAP_MAGIC;
     }
 
     if(fread(snap->data, snap->group->size, 1, log->fp) != 1) {
