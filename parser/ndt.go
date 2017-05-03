@@ -59,9 +59,15 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 			"normal").Observe(float64(len(rawSnapLog)))
 	}
 
-	if len(rawSnapLog) < 128*1024 {
+	if len(rawSnapLog) < 32*1024 {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "<128KB"}).Inc()
+			"table": n.TableName(), "type": "<32KB"}).Inc()
+		log.Printf("rawSnapLog: %d, %s\n",
+			len(rawSnapLog), testName)
+	}
+	if len(rawSnapLog) == 4096 {
+		metrics.TestCount.With(prometheus.Labels{
+			"table": n.TableName(), "type": "4KB"}).Inc()
 		log.Printf("rawSnapLog: %d, %s\n",
 			len(rawSnapLog), testName)
 	}
