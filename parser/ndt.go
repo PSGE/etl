@@ -33,6 +33,7 @@ func NewNDTParser(ins etl.Inserter) *NDTParser {
 }
 
 // ParseAndInsert extracts the last snaplog from the given raw snap log.
+// TODO(dev) This is getting big and ugly and needs to be refactored.
 func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName string, rawSnapLog []byte) error {
 	// TODO(prod): do not write to a temporary file; operate on byte array directly.
 	// Write rawSnapLog to /mnt/tmpfs.
@@ -46,7 +47,7 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	// /mnt/tmpfs will fit.
 	if len(rawSnapLog) > 10*1024*1024 {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "oversize"}).Inc()
+			"table": n.TableName(), "type": ">10MB"}).Inc()
 		log.Printf("Ignoring oversize snaplog: %d, %s\n",
 			len(rawSnapLog), testName)
 		metrics.FileSizeHistogram.WithLabelValues(
@@ -58,33 +59,15 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 			"normal").Observe(float64(len(rawSnapLog)))
 	}
 
-	tmpFile, err := ioutil.TempFile(n.tmpDir, "snaplog-")
-	if err != nil {
+	if len(rawSnapLog) < 128*1024 {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "no-tmp"}).Inc()
-		log.Printf("Failed to create tmpfile for: %s, when processing: %s\n",
-			testName, meta["filename"])
-		return nil
+			"table": n.TableName(), "type": "<128KB"}).Inc()
+		log.Printf("rawSnapLog: %d, %s\n",
+			len(rawSnapLog), testName)
 	}
 
 	metrics.WorkerState.WithLabelValues("ndt").Inc()
 	defer metrics.WorkerState.WithLabelValues("ndt").Dec()
-
-	c := 0
-	for count := 0; count < len(rawSnapLog); count += c {
-		c, err = tmpFile.Write(rawSnapLog)
-		if err != nil {
-			metrics.TestCount.With(prometheus.Labels{
-				"table": n.TableName(), "type": "write-err"}).Inc()
-			log.Printf("Tmpfs write error: %s, when processing: %s\n%s\n",
-				testName, meta["filename"], err)
-			return nil
-		}
-	}
-
-	tmpFile.Sync()
-	// TODO(dev): log possible remove errors.
-	defer os.Remove(tmpFile.Name())
 
 	// TODO(dev): only do this once.
 	// Parse the tcp-kis.txt web100 variable definition file.
@@ -114,13 +97,38 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		return nil
 	}
 
+	tmpFile, err := ioutil.TempFile(n.tmpDir, "snaplog-")
+	if err != nil {
+		metrics.TestCount.With(prometheus.Labels{
+			"table": n.TableName(), "type": "no-tmp"}).Inc()
+		log.Printf("Failed to create tmpfile for: %s, when processing: %s\n",
+			testName, meta["filename"])
+		return nil
+	}
+
+	c := 0
+	for count := 0; count < len(rawSnapLog); count += c {
+		c, err = tmpFile.Write(rawSnapLog)
+		if err != nil {
+			metrics.TestCount.With(prometheus.Labels{
+				"table": n.TableName(), "type": "write-err"}).Inc()
+			log.Printf("Tmpfs write error: %s, when processing: %s\n%s\n",
+				testName, meta["filename"], err)
+			return nil
+		}
+	}
+
+	tmpFile.Sync()
+	// TODO(dev): log possible remove errors.
+	defer os.Remove(tmpFile.Name())
+
 	// Open the file we created above.
 	w, err := web100.Open(tmpFile.Name(), legacyNames)
 	if err != nil {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "no-tmp-legacy"}).Inc()
-		log.Printf("legacyNames error: %s, when processing: %s\n%s\n",
-			testName, meta["filename"], err)
+			"table": n.TableName(), "type": "truncated?"}).Inc()
+		log.Printf("%s, in %s, when processing: %s\n",
+			err, testName, meta["filename"])
 		return nil
 	}
 	defer w.Close()

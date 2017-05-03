@@ -73,6 +73,14 @@ const char* const web100_sys_errlist[] = {
     "group not found",                     /* WEB100_ERR_NOGROUP */
     "socket operation failed",             /* WEB100_ERR_SOCK */
     "unexpected error due to kernel version mismatch", /* WEB100_ERR_KERNVER */
+    "truncated snapshot data",              /* WEB100_ERR_FILE_TRUNCATED_SNAP_DATA */
+    "file read/write error A",               /* WEB100_ERR_FILE_A */
+    "file read/write error B",               /* WEB100_ERR_FILE_B */
+    "file read/write error C",               /* WEB100_ERR_FILE_C */
+    "file read/write error D",               /* WEB100_ERR_FILE_D */
+    "file read/write error E",               /* WEB100_ERR_FILE_E */
+    "file read/write error F",               /* WEB100_ERR_FILE_F */
+    "file read/write error G",               /* WEB100_ERR_FILE_G */
 };
 
 /*
@@ -337,7 +345,7 @@ refresh_connections(web100_agent *agent)
 
     if ((dir = opendir(WEB100_ROOT_DIR)) == NULL) {
         perror("refresh_connections: opendir");
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_A;
     }
 
     while ((ent = readdir(dir))) {
@@ -382,7 +390,7 @@ refresh_connections(web100_agent *agent)
         }
 
         if ((var = web100_var_find(spec_gp, "LocalAddress", &w_errno)) == NULL)
-            return WEB100_ERR_FILE;  // ??? Use w_errno?
+            return WEB100_ERR_FILE_B;  // ??? Use w_errno?
         w_errno = web100_raw_read(var, cp, buf);
         if (w_errno != WEB100_ERR_SUCCESS) {
             return w_errno;
@@ -393,7 +401,7 @@ refresh_connections(web100_agent *agent)
             memcpy(&cp->spec_v6.src_addr, buf, 16);
 
         if ((var = web100_var_find(spec_gp, addr_name, &w_errno)) == NULL)
-            return WEB100_ERR_FILE;  // ??? Return w_errno?
+            return WEB100_ERR_FILE_C;  // ??? Return w_errno?
         w_errno = web100_raw_read(var, cp, buf);
         if (w_errno != WEB100_ERR_SUCCESS)
             return w_errno;
@@ -403,14 +411,14 @@ refresh_connections(web100_agent *agent)
             memcpy(&cp->spec_v6.dst_addr, buf, 16);
 
         if ((var = web100_var_find(spec_gp, "LocalPort", &w_errno)) == NULL)
-            return WEB100_ERR_FILE;  // ?? w_errno?
+            return WEB100_ERR_FILE_D;  // ?? w_errno?
         dst = (cp->addrtype == WEB100_ADDRTYPE_IPV4) ? &cp->spec.src_port : &cp->spec_v6.src_port;
         w_errno = web100_raw_read(var, cp, dst);
         if (w_errno != WEB100_ERR_SUCCESS)
             return w_errno;
 
         if ((var = web100_var_find(spec_gp, port_name, &w_errno)) == NULL)
-            return WEB100_ERR_FILE;  // w_errno?
+            return WEB100_ERR_FILE_E;  // w_errno?
         dst = (cp->addrtype == WEB100_ADDRTYPE_IPV4) ? &cp->spec.dst_port : &cp->spec_v6.dst_port;
         w_errno = web100_raw_read(var, cp, dst);
         if (w_errno != WEB100_ERR_SUCCESS) 
@@ -963,7 +971,7 @@ web100_snap(web100_snapshot *snap)
     }
 
     if (fclose(fp)) {
-       	return WEB100_ERR_FILE;
+       	return WEB100_ERR_FILE_F;
     }
 
     return WEB100_ERR_SUCCESS;
@@ -994,11 +1002,11 @@ web100_raw_read(web100_var *var, web100_connection *conn, void *buf)
 
     if (fseek(fp, var->offset, SEEK_SET)) {
         perror("web100_raw_read: fseek");
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_G;
     }
     if (fread(buf, size_from_type(var->type), 1, fp) != 1) {
         perror("web100_raw_read: fread");
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_A;
     }
 
     if (fclose(fp))
@@ -1032,16 +1040,16 @@ web100_raw_write(web100_var *var, web100_connection *conn, void *buf)
 
     if (fseek(fp, var->offset, SEEK_SET)) {
         perror("web100_raw_write: fseek");
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_B;
     }
     if (fwrite(buf, size_from_type(var->type), 1, fp) != 1) {
         perror("web100_raw_write: fread");
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_C;
     }
 
     if (fflush(fp)) {
 	perror("web100_raw_write: flush failed");
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_D;
     }
 
     if (fclose(fp))
@@ -1379,20 +1387,20 @@ web100_log_open_write(char *logname, web100_connection *conn,
     log->connection  = conn;
 
     if((log->fp = fopen(logname, "w")) == NULL) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_E;
 	goto Cleanup;
     }
 
     while ((c=fgetc(header)) != EOF){
       if(fputc(c, log->fp) != c){
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_F;
 	goto Cleanup;
       }
     }
     fputc('\0', log->fp);
 
     if(fclose(header)) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_G;
 	goto Cleanup;
     }
     //
@@ -1405,21 +1413,21 @@ web100_log_open_write(char *logname, web100_connection *conn,
     log->time = time(NULL);
 
     if(fwrite(&log->time, sizeof(uint32_t), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_A;
 	goto Cleanup;
     }
     //
     // Put in group name
     //
     if(fwrite(group->name, WEB100_GROUPNAME_LEN_MAX, 1, log->fp) != 1) {
-       	*w_errno = WEB100_ERR_FILE;
+       	*w_errno = WEB100_ERR_FILE_B;
        	goto Cleanup;
     }
     //
     // Put in connection spec
     //
     if(fwrite(&(conn->spec), sizeof(struct web100_connection_spec), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_C;
        	goto Cleanup;
     }
 
@@ -1442,7 +1450,7 @@ int
 web100_log_close_write(web100_log *log)
 {
     if(fclose(log->fp) != 0) {
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_D;
     }
 
     free(log);
@@ -1453,7 +1461,7 @@ int
 web100_log_write(web100_log *log, web100_snapshot *snap)
 {
     if(log->fp == NULL) {
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_E;
     }
 
     if(log->group != snap->group) {
@@ -1470,7 +1478,7 @@ web100_log_write(web100_log *log, web100_snapshot *snap)
     fprintf(log->fp, "%s\n", BEGIN_SNAP_DATA);
 
     if(fwrite(snap->data, snap->group->size, 1, log->fp) != 1) {
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_F;
     }
 
     return WEB100_ERR_SUCCESS;
@@ -1495,12 +1503,12 @@ web100_log_open_read(char *logname, int *w_errno)
     }
 
     if ((log->fp = fopen(logname, "r")) == NULL) {
-        *w_errno  = WEB100_ERR_FILE;
+        *w_errno  = WEB100_ERR_FILE_A;
         goto Cleanup;
     }
 
     if ((header = fopen("./log_header", "w+")) == NULL) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_B;
 	goto Cleanup;
     }
 
@@ -1527,17 +1535,17 @@ web100_log_open_read(char *logname, int *w_errno)
     }
 
     if (strncmp(tmpbuf, END_OF_HEADER_MARKER, strlen(END_OF_HEADER_MARKER)) != 0 ) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_C;
        	goto Cleanup;
     }
 
     if(fread(&log->time, sizeof(unsigned int), 1, log->fp) != 1) {
-       	*w_errno = WEB100_ERR_FILE;
+       	*w_errno = WEB100_ERR_FILE_D;
        	goto Cleanup;
     }
 
     if(fread(group_name, WEB100_GROUPNAME_LEN_MAX, 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_E;
        	goto Cleanup;
     }
 
@@ -1552,7 +1560,7 @@ web100_log_open_read(char *logname, int *w_errno)
     cp->agent    = agent;
     cp->cid      = WEB100_LOG_CID; //dummy
     if(fread(&(cp->spec), sizeof(struct web100_connection_spec), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+	*w_errno = WEB100_ERR_FILE_F;
        	goto Cleanup;
     }
 
@@ -1595,7 +1603,7 @@ web100_log_close_read(web100_log *log)
 {
     if(log) {
        	if(fclose(log->fp) != 0) {
-	    return WEB100_ERR_FILE;
+	    return WEB100_ERR_FILE_G;
        	}
 	web100_detach(log->agent);
        	free(log);
@@ -1615,7 +1623,7 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
     }
 
     if (log->fp == NULL) {
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_A;
     }
 
     // Read no more than 79 characters into tmpbuf (which has size 80).
@@ -1633,11 +1641,11 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
     // Cleanup the line
 
     if( strcmp(tmpbuf,BEGIN_SNAP_DATA) != 0 ){
-        return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_B;
     }
 
     if(fread(snap->data, snap->group->size, 1, log->fp) != 1) {
-	return WEB100_ERR_FILE;
+	return WEB100_ERR_FILE_TRUNCATED_SNAP_DATA;
     }
 
     return WEB100_ERR_SUCCESS;
