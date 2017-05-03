@@ -1449,7 +1449,7 @@ int
 web100_log_close_write(web100_log *log)
 {
     if(fclose(log->fp) != 0) {
-        return WEB100_ERR_FILE_D;
+        return WEB100_ERR_FILE;
     }
 
     free(log);
@@ -1460,7 +1460,7 @@ int
 web100_log_write(web100_log *log, web100_snapshot *snap)
 {
     if(log->fp == NULL) {
-        return WEB100_ERR_FILE_E;
+        return WEB100_ERR_FILE;
     }
 
     if(log->group != snap->group) {

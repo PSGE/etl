@@ -60,7 +60,8 @@ func (tt *Task) ProcessAllTests() error {
 			// Because of the break, this error is passed up, and counted at the Task level.
 			log.Printf("filename:%s files:%d duration:%v err:%v",
 				tt.meta["filename"], files, time.Since(tt.meta["parse_time"].(time.Time)), err)
-			break
+			
+			continue
 		}
 		if data == nil {
 			// TODO(dev) Handle directories (expected) and other
