@@ -86,8 +86,21 @@ func getDataType(fn string) etl.DataType {
 var inFlight int32
 
 // Returns true if request should be rejected.
+// If the max concurrency (MC) exceeds (or matches) the instances*workers, then
+// most requests will be rejected, until the median number of workers is
+// less than the throttle.
+// ** So we should set max instances (MI) * max workers (MW) > max concurrency.
+//
+// We also want max_concurrency high enough that most instances have several
+// jobs.  With MI=20, MW=25, MC=100, the average workers/instance is only 4, and
+// we end up with many instances starved, so AppEngine was removing instances even
+// though the queue throughput was poor.
+// ** So we probably want MC/MI > MW/2, to prevent starvation.
+//
+// For now, assuming:
+//    MC: 200,  MI: 20, MW: 15
 func shouldThrottle() bool {
-	if atomic.AddInt32(&inFlight, 1) > 25 {
+	if atomic.AddInt32(&inFlight, 1) > 15 {
 		atomic.AddInt32(&inFlight, -1)
 		return true
 	}
@@ -99,6 +112,8 @@ func decrementInFlight() {
 }
 
 func worker(w http.ResponseWriter, r *http.Request) {
+	// TODO(dev) Check how many times a request has already been attempted.
+
 	// These keep track of the (nested) state of the worker.
 	metrics.WorkerState.WithLabelValues("worker").Inc()
 	defer metrics.WorkerState.WithLabelValues("worker").Dec()
@@ -106,8 +121,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	// Throttle by grabbing a semaphore from channel.
 	if shouldThrottle() {
 		metrics.TaskCount.WithLabelValues("unknown", "TooManyRequests").Inc()
-		fmt.Fprintf(w, `{"message": "Too many tasks."}`)
 		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprintf(w, `{"message": "Too many tasks."}`)
 		return
 	}
 	// Decrement counter when worker finishes.
@@ -117,18 +132,20 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	defer metrics.WorkerCount.Dec()
 
 	r.ParseForm()
-	// Log request data.
+	// Log any request data other than filename (which is logged below)
 	for key, value := range r.Form {
-		log.Printf("Form:   %q == %q\n", key, value)
+		if key != "filename" {
+			log.Printf("Form:   %q == %q\n", key, value)
+		}
 	}
 
 	// This handles base64 encoding, and requires a gs:// prefix.
 	fn, err := storage.GetFilename(r.FormValue("filename"))
 	if err != nil {
 		metrics.TaskCount.WithLabelValues("unknown", "BadRequest").Inc()
-		fmt.Fprintf(w, `{"message": "Invalid filename."}`)
-		w.WriteHeader(http.StatusBadRequest)
 		log.Printf("Invalid filename: %s\n", fn)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message": "Invalid filename."}`)
 		return
 	}
 
@@ -146,9 +163,9 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	// Move this into Validate function
 	if dataType == etl.INVALID {
 		metrics.TaskCount.WithLabelValues("unknown", "BadRequest").Inc()
-		fmt.Fprintf(w, `{"message": "Invalid filename."}`)
-		w.WriteHeader(http.StatusBadRequest)
 		log.Printf("Invalid filename: %s\n", fn)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message": "Invalid filename."}`)
 		return
 	}
 
@@ -156,8 +173,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		metrics.TaskCount.WithLabelValues("unknown", "ServiceUnavailable").Inc()
 		log.Printf("Error getting storage client: %v\n", err)
-		fmt.Fprintf(w, `{"message": "Could not create client."}`)
 		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, `{"message": "Could not create client."}`)
 		return
 	}
 
@@ -166,8 +183,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "ETLSourceError").Inc()
 		log.Printf("Error downloading file: %v", err)
-		fmt.Fprintf(w, `{"message": "Problem downloading file."}`)
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `{"message": "Problem downloading file."}`)
 		return
 		// TODO - anything better we could do here?
 	}
@@ -177,8 +194,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "NewInserterError").Inc()
 		log.Printf("Error creating BQ Inserter:  %v", err)
-		fmt.Fprintf(w, `{"message": "Problem creating BQ inserter."}`)
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `{"message": "Problem creating BQ inserter."}`)
 		return
 		// TODO - anything better we could do here?
 	}
@@ -197,8 +214,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "TaskError").Inc()
 		log.Printf("Error Processing Tests:  %v", err)
-		fmt.Fprintf(w, `{"message": "Error in ProcessAllTests"}`)
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `{"message": "Error in ProcessAllTests"}`)
 		return
 		// TODO - anything better we could do here?
 	}
