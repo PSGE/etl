@@ -115,8 +115,6 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		return nil
 	}
 
-	// TODO(prod): do not write to a temporary file; operate on byte array directly.
-	// Write rawSnapLog to /mnt/tmpfs.
 	tmpFile, err := ioutil.TempFile(n.tmpDir, "snaplog-")
 	if err != nil {
 		metrics.TestCount.WithLabelValues(

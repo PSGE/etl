@@ -1412,8 +1412,8 @@ web100_log_open_write(char *logname, web100_connection *conn,
     log->time = time(NULL);
 
     if(fwrite(&log->time, sizeof(uint32_t), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
-	goto Cleanup;
+        *w_errno = WEB100_ERR_FILE;
+        goto Cleanup;
     }
     //
     // Put in group name
@@ -1426,7 +1426,7 @@ web100_log_open_write(char *logname, web100_connection *conn,
     // Put in connection spec
     //
     if(fwrite(&(conn->spec), sizeof(struct web100_connection_spec), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+        *w_errno = WEB100_ERR_FILE;
        	goto Cleanup;
     }
 
@@ -1449,7 +1449,7 @@ int
 web100_log_close_write(web100_log *log)
 {
     if(fclose(log->fp) != 0) {
-	return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_D;
     }
 
     free(log);
@@ -1460,7 +1460,7 @@ int
 web100_log_write(web100_log *log, web100_snapshot *snap)
 {
     if(log->fp == NULL) {
-	return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE_E;
     }
 
     if(log->group != snap->group) {
@@ -1477,7 +1477,7 @@ web100_log_write(web100_log *log, web100_snapshot *snap)
     fprintf(log->fp, "%s\n", BEGIN_SNAP_DATA);
 
     if(fwrite(snap->data, snap->group->size, 1, log->fp) != 1) {
-	return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE;
     }
 
     return WEB100_ERR_SUCCESS;
@@ -1544,7 +1544,7 @@ web100_log_open_read(char *logname, int *w_errno)
     }
 
     if(fread(group_name, WEB100_GROUPNAME_LEN_MAX, 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+        *w_errno = WEB100_ERR_FILE;
        	goto Cleanup;
     }
 
@@ -1559,7 +1559,7 @@ web100_log_open_read(char *logname, int *w_errno)
     cp->agent    = agent;
     cp->cid      = WEB100_LOG_CID; //dummy
     if(fread(&(cp->spec), sizeof(struct web100_connection_spec), 1, log->fp) != 1) {
-	*w_errno = WEB100_ERR_FILE;
+        *w_errno = WEB100_ERR_FILE;
        	goto Cleanup;
     }
 
@@ -1602,10 +1602,10 @@ web100_log_close_read(web100_log *log)
 {
     if(log) {
        	if(fclose(log->fp) != 0) {
-	    return WEB100_ERR_FILE;
+            return WEB100_ERR_FILE;
        	}
-	web100_detach(log->agent);
-       	free(log);
+        web100_detach(log->agent);
+        free(log);
     }
 
     return WEB100_ERR_SUCCESS;
@@ -1622,7 +1622,7 @@ web100_snap_from_log(web100_snapshot* snap, web100_log *log)
     }
 
     if (log->fp == NULL) {
-	return WEB100_ERR_FILE;
+        return WEB100_ERR_FILE;
     }
 
     // Read no more than 79 characters into tmpbuf (which has size 80).
