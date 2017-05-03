@@ -42,3 +42,10 @@ network:
   # Note: the default AppEngine container port 8080 cannot be forwarded.
   forwarded_ports:
     - 9090/tcp
+
+inbound_services:
+- warmup
+
+handlers:
+- url: /_ah/warmup
+  script: _go_app

@@ -61,6 +61,7 @@ func (rr *ETLSource) NextTest() (string, []byte, error) {
 		data, err = ioutil.ReadAll(rr)
 	}
 	if err != nil {
+		// TODO - we are seeing 1 or 2 of these per hour.
 		metrics.TaskCount.WithLabelValues("NDT", "otherReaderError").Inc()
 		return h.Name, nil, err
 	}

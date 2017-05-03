@@ -34,11 +34,19 @@ func NewNDTParser(ins etl.Inserter) *NDTParser {
 
 // ParseAndInsert extracts the last snaplog from the given raw snap log.
 // TODO(dev) This is getting big and ugly and needs to be refactored.
+// TODO(prod): do not write to a temporary file; operate on byte array directly.
+// Write rawSnapLog to /mnt/tmpfs.
 func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName string, rawSnapLog []byte) error {
-	// TODO(prod): do not write to a temporary file; operate on byte array directly.
-	// Write rawSnapLog to /mnt/tmpfs.
-	if !strings.HasSuffix(testName, "c2s_snaplog") && !strings.HasSuffix(testName, "s2c_snaplog") {
-		// Ignoring non-snaplog file.
+	var testType string
+	if strings.HasSuffix(testName, "c2s_snaplog") {
+		testType = "c2s"
+	} else if strings.HasSuffix(testName, "s2c_snaplog") {
+		testType = "s2c"
+	} else if strings.HasSuffix(testName, "meta") {
+		testType = "meta"
+	} else {
+		metrics.TestCount.With(prometheus.Labels{
+			"table": n.TableName(), "type": testType}).Inc()
 		return nil
 	}
 
@@ -62,14 +70,12 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	if len(rawSnapLog) < 32*1024 {
 		metrics.TestCount.With(prometheus.Labels{
 			"table": n.TableName(), "type": "<32KB"}).Inc()
-		log.Printf("rawSnapLog: %d, %s\n",
+		log.Printf("Note: small rawSnapLog: %d, %s\n",
 			len(rawSnapLog), testName)
 	}
 	if len(rawSnapLog) == 4096 {
 		metrics.TestCount.With(prometheus.Labels{
 			"table": n.TableName(), "type": "4KB"}).Inc()
-		log.Printf("rawSnapLog: %d, %s\n",
-			len(rawSnapLog), testName)
 	}
 
 	metrics.WorkerState.WithLabelValues("ndt").Inc()
@@ -84,9 +90,9 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	if err != nil {
 		// Asset missing from build.
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "no-asset"}).Inc()
-		log.Printf("Asset missing error: %s, when processing: %s\n%s\n",
-			testName, meta["filename"], err)
+			"table": n.TableName(), "type": "web100.Asset"}).Inc()
+		log.Printf("web100.Asset error: %s processing %s from %s\n",
+			err, testName, meta["filename"])
 		return nil
 	}
 	b := bytes.NewBuffer(data)
@@ -97,9 +103,9 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	legacyNames, err := web100.ParseWeb100Definitions(b)
 	if err != nil {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "legacy-names"}).Inc()
-		log.Printf("ParseWeb100Def error: %s, when processing: %s\n%s\n",
-			testName, meta["filename"], err)
+			"table": n.TableName(), "type": "web100.ParseDef"}).Inc()
+		log.Printf("web100.ParseDef error: %s processing %s from %s\n",
+			err, testName, meta["filename"])
 		return nil
 	}
 
@@ -117,9 +123,9 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		c, err = tmpFile.Write(rawSnapLog)
 		if err != nil {
 			metrics.TestCount.With(prometheus.Labels{
-				"table": n.TableName(), "type": "write-err"}).Inc()
-			log.Printf("Tmpfs write error: %s, when processing: %s\n%s\n",
-				testName, meta["filename"], err)
+				"table": n.TableName(), "type": "tmpFile.Write"}).Inc()
+			log.Printf("tmpFile.Write error: %s processing: %s from %s\n",
+				err, testName, meta["filename"])
 			return nil
 		}
 	}
@@ -132,8 +138,10 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	w, err := web100.Open(tmpFile.Name(), legacyNames)
 	if err != nil {
 		metrics.TestCount.With(prometheus.Labels{
-			"table": n.TableName(), "type": "truncated?"}).Inc()
-		log.Printf("%s, in %s, when processing: %s\n",
+			"table": n.TableName(), "type": "web100.Open"}).Inc()
+		// These are mostly "could not parse /proc/web100/header",
+		// with some "file read/write error C"
+		log.Printf("web100.Open error: %s processing %s from %s\n",
 			err, testName, meta["filename"])
 		return nil
 	}
@@ -144,6 +152,7 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	defer metrics.WorkerState.WithLabelValues("seek").Dec()
 	// Limit to parsing only up to 2100 snapshots.
 	// NOTE: This is different from legacy pipeline!!
+	badRecords := 0
 	for count := 0; count < 2100; count++ {
 		err = w.Next()
 		if err != nil {
@@ -153,10 +162,17 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 			} else {
 				// TODO - this will lose tests.  Do something better!
 				metrics.TestCount.With(prometheus.Labels{
-					"table": n.TableName(), "type": "not-eof"}).Inc()
-				log.Printf("Failed to reach EOF: %d, %s, (%s), when processing: %s\n%s\n",
-					count, tmpFile.Name(), testName, meta["filename"], err)
-				return nil
+					"table": n.TableName(), "type": "w.Next"}).Inc()
+				log.Printf("w.Next error: %s processing snap %d from %s from %s\n",
+					err, count, testName, meta["filename"])
+				// This could either be a bad record, or EOF.
+				badRecords++
+				if badRecords > 10 {
+					metrics.TestCount.With(prometheus.Labels{
+						"table": n.TableName(), "type": "10 bad"}).Inc()
+					return nil
+				}
+				continue
 			}
 		}
 		// HACK - just to see how expensive the Values() call is...
@@ -166,7 +182,7 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 			err := w.SnapshotValues(schema.Web100ValueMap{})
 			if err != nil {
 				metrics.TestCount.With(prometheus.Labels{
-					"table": n.TableName(), "type": "values-err"}).Inc()
+					"table": n.TableName(), "type": "w.Values"}).Inc()
 			}
 		}
 	}
@@ -201,13 +217,8 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		return err
 	} else {
 		// TODO - test type should be a separate label, so we can see which files have which errors.
-		if strings.HasSuffix(testName, "c2s_snaplog") {
-			metrics.TestCount.With(prometheus.Labels{
-				"table": n.TableName(), "type": "c2s"}).Inc()
-		} else {
-			metrics.TestCount.With(prometheus.Labels{
-				"table": n.TableName(), "type": "s2c"}).Inc()
-		}
+		metrics.TestCount.With(prometheus.Labels{
+			"table": n.TableName(), "type": testType}).Inc()
 		return nil
 	}
 }

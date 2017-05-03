@@ -104,6 +104,7 @@ struct web100_connection_spec_v6 {
 #define WEB100_ERR_FILE_G          18
 #define WEB100_ERR_LOG_HEADER      19
 #define WEB100_ERR_MISSING_SNAP_MAGIC 20
+#define WEB100_ERR_END_OF_HEADER   21
 
 extern const char* const web100_sys_errlist[];
 extern int               web100_sys_nerr;
