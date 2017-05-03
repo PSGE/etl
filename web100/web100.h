@@ -94,6 +94,14 @@ struct web100_connection_spec_v6 {
 #define WEB100_ERR_NOGROUP         8
 #define WEB100_ERR_SOCK            9
 #define WEB100_ERR_KERNVER         10
+#define WEB100_ERR_FILE_TRUNCATED_SNAP_DATA 11
+#define WEB100_ERR_FILE_A          12
+#define WEB100_ERR_FILE_B          13
+#define WEB100_ERR_FILE_C          14
+#define WEB100_ERR_FILE_D          15
+#define WEB100_ERR_FILE_E          16
+#define WEB100_ERR_FILE_F          17
+#define WEB100_ERR_FILE_G          18
 
 extern const char* const web100_sys_errlist[];
 extern int               web100_sys_nerr;
