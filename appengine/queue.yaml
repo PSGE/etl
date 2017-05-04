@@ -11,6 +11,9 @@ queue:
   # have very little impact for our environment.
   bucket_size: 10
   # Maximum number of concurrent requests.
+  # We generally want at least one slot per instance available on average.
+  # Adjust this when changing max instances (in app engine service config) 
+  # or max tasks per instance (in worker code).
   max_concurrent_requests: 180
 
 - name: etl-ndt-queue
@@ -22,6 +25,9 @@ queue:
   # have very little impact for our environment.
   bucket_size: 10
   # Maximum number of concurrent requests.
+  # We generally want at least one slot per instance available on average.
+  # Adjust this when changing max instances (in app engine service config) 
+  # or max tasks per instance (in worker code).
   max_concurrent_requests: 180
 
 - name: etl-traceroute-queue
@@ -33,6 +39,9 @@ queue:
   # have very little impact for our environment.
   bucket_size: 10
   # Maximum number of concurrent requests.
+  # We generally want at least one slot per instance available on average.
+  # Adjust this when changing max instances (in app engine service config) 
+  # or max tasks per instance (in worker code).
   max_concurrent_requests: 180
 
 - name: etl-sidestream-queue
@@ -44,6 +53,9 @@ queue:
   # have very little impact for our environment.
   bucket_size: 10
   # Maximum number of concurrent requests.
+  # We generally want at least one slot per instance available on average.
+  # Adjust this when changing max instances (in app engine service config) 
+  # or max tasks per instance (in worker code).
   max_concurrent_requests: 180
 
 - name: etl-disco-queue
