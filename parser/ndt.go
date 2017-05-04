@@ -160,16 +160,27 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 				// We expect EOF.
 				break
 			} else {
-				// TODO - this will lose tests.  Do something better!
+				// FYI - something like 1/5000 logs typically have these errors.
+				// But they may be associated with specific bad machines.
+				//
+				// TODO - when this is "missing snaplog header", it is usually but
+				// not always unrecoverable.  This is a tiny fraction - 200 / 20M.
+				//
+				// When we see "missing end of header" or
+				// "truncated", then they are usually singletons, so either we
+				// recover or perhaps we get EOF immediately.
 				metrics.TestCount.With(prometheus.Labels{
 					"table": n.TableName(), "type": "w.Next"}).Inc()
-				log.Printf("w.Next error: %s processing snap %d from %s from %s\n",
+				log.Printf("w.Next error: %s processing snap %d? from %s from %s\n",
 					err, count, testName, meta["filename"])
 				// This could either be a bad record, or EOF.
 				badRecords++
 				if badRecords > 10 {
 					metrics.TestCount.With(prometheus.Labels{
 						"table": n.TableName(), "type": "10 bad"}).Inc()
+					// TODO - don't see this in the logs on 5/4.  Not sure why.
+					log.Printf("w.Next 10 bad processing snapshots from %s from %s\n",
+						testName, meta["filename"])
 					return nil
 				}
 				continue
