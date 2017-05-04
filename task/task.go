@@ -53,8 +53,14 @@ func (tt *Task) ProcessAllTests() error {
 			// TODO(dev) Handle this error properly!
 			// TODO - fix dataType
 			// We are seeing these very rarely, maybe 1 per hour.
-			metrics.TaskCount.WithLabelValues("NDT", "NonEOFError").Inc()
-			// TODO!! We are seeing A LOT of these.
+			if strings.Contains(err.Error(), "stream error") {
+				metrics.TaskCount.WithLabelValues("NDT", "stream error").Inc()
+			} else {
+				metrics.TaskCount.WithLabelValues("NDT", "NextTest").Inc()
+			}
+			// We are seeing several of these per hour, a little more than
+			// one in one thousand files.  duration varies from 10 seconds up to several
+			// minutes.
 			// Example:
 			// filename:gs://m-lab-sandbox/ndt/2016/04/10/20160410T000000Z-mlab1-ord02-ndt-0002.tgz
 			// files:666 duration:1m47.571825351s
