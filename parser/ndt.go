@@ -42,9 +42,12 @@ func (n *NDTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 		testType = "c2s"
 	} else if strings.HasSuffix(testName, "s2c_snaplog") {
 		testType = "s2c"
-	} else if strings.HasSuffix(testName, "meta") {
-		testType = "meta"
 	} else {
+		if strings.HasSuffix(testName, "meta") {
+			testType = "meta"
+		} else {
+			testType = "other"
+		}
 		metrics.TestCount.With(prometheus.Labels{
 			"table": n.TableName(), "type": testType}).Inc()
 		return nil
