@@ -52,6 +52,7 @@ type PT struct {
 	paris_traceroute_hop []ParisTracerouteHop
 }
 
+// TODO(prod) Move this to parser/common.go
 type MLabConnectionSpecification struct {
 	server_ip      string
 	server_af      int
@@ -119,6 +120,7 @@ func NewPTParser(ins etl.Inserter) *PTParser {
 	return &PTParser{ins, "/mnt/tmpfs"}
 }
 
+// ProcessAllNodes take the array of the Nodes, and generate one ParisTracerouteHop entry from each node.
 func ProcessAllNodes(all_nodes []Node, server_IP string) []ParisTracerouteHop {
 	var results []ParisTracerouteHop
 	if len(all_nodes) == 0 {
@@ -205,9 +207,20 @@ func GetLogtime(filename PTFileName) int64 {
 }
 
 func (pt *PTParser) ParseAndInsert(meta map[string]bigquery.Value, testName string, rawContent []byte) error {
-	file, err := os.Open(testName)
+	hops, err := Parse(meta, testName, rawContent)
 	if err != nil {
 		return err
+	}
+        fmt.Println(len(hops))
+        // Insert hops into BigQuery table.
+        return nil
+}
+
+// Parse the raw test file into hops ParisTracerouteHop.
+func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) ([]ParisTracerouteHop, error) {
+	file, err := os.Open(testName)
+	if err != nil {
+		return nil, err
 	}
 	defer file.Close()
 
@@ -258,7 +271,7 @@ func (pt *PTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 			// if there is parts[7], it should be hostname again like parts[3] ......
 			for i := 3; i < len(parts); i += 4 {
 				if parts[i+3] != "ms" {
-					return errors.New("Malformed line. Expected 'ms'")
+					return nil, errors.New("Malformed line. Expected 'ms'")
 				}
 				var rtt []float64
 				// Handle tcp or udp, parts[5] is a single number.
@@ -269,14 +282,14 @@ func (pt *PTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 						rtt = append(rtt, one_rtt)
 					} else {
 						log.Println("Failed to conver rtt to number with error %v", err)
-						return err
+						return nil, err
 					}
 				}
 				// Handle icmp, parts[5] has 4 numbers separated by "/"
 				if protocal == "icmp" {
 					nums := strings.Split(parts[i+2], "/")
 					if len(nums) != 4 {
-						return errors.New("Failed to parse rtts for icmp test. 4 numbers expected")
+						return nil, errors.New("Failed to parse rtts for icmp test. 4 numbers expected")
 					}
 					for _, num := range nums {
 						one_rtt, err := strconv.ParseFloat(num, 64)
@@ -284,7 +297,7 @@ func (pt *PTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 							rtt = append(rtt, one_rtt)
 						} else {
 							fmt.Printf("Failed to conver rtt to number with error %v", err)
-							return err
+							return nil, err
 						}
 					}
 				}
@@ -357,10 +370,10 @@ func (pt *PTParser) ParseAndInsert(meta map[string]bigquery.Value, testName stri
 	} // Done with a test file
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	// Generate Hops from all_nodes
 	PT_hops := ProcessAllNodes(all_nodes, server_IP)
 	fmt.Println(len(PT_hops))
-	return nil
+	return PT_hops, nil
 }
