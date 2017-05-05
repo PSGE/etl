@@ -2,7 +2,7 @@ package parser
 
 import (
 	"io/ioutil"
-        "reflect"
+	"reflect"
 	"testing"
 )
 

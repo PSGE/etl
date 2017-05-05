@@ -230,7 +230,6 @@ func ProcessOneTuple(parts []string, protocal string, current_leaves []Node, all
 	var rtt []float64
 	// Handle tcp or udp, parts[5] is a single number.
 	if protocal == "tcp" || protocal == "udp" {
-		fmt.Println(parts[2])
 		one_rtt, err := strconv.ParseFloat(parts[2], 64)
 		if err == nil {
 			rtt = append(rtt, one_rtt)
@@ -342,7 +341,6 @@ func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) (
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		oneLine := strings.TrimSuffix(scanner.Text(), "\n")
-		fmt.Println(oneLine)
 		// Skip initial lines starting with #.
 		if len(oneLine) == 0 || oneLine[0] == '#' {
 			continue
@@ -374,11 +372,6 @@ func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) (
 			} // Done with a 4-tuple parsing
 		} // Done with one line
 		current_leaves = new_leaves
-		fmt.Println("Here are new leaves")
-		for _, leaf := range current_leaves {
-			fmt.Println(leaf)
-		}
-
 	} // Done with a test file
 
 	if err := scanner.Err(); err != nil {
@@ -386,6 +379,5 @@ func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) (
 	}
 	// Generate Hops from all_nodes
 	PT_hops := ProcessAllNodes(all_nodes, server_IP, protocal)
-	fmt.Println(len(PT_hops))
 	return PT_hops, nil
 }
