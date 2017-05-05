@@ -1,4 +1,5 @@
 // Parse PT filename like 20170320T23:53:10Z-98.162.212.214-53849-64.86.132.75-42677.paris
+// The format of test file can be found at https://paris-traceroute.net/.
 package parser
 
 import (
@@ -42,18 +43,13 @@ func (f *PTFileName) GetDate() (string, bool) {
 	return "", false
 }
 
-type FileNameParser interface {
-	GetIPTuple()
-	GetDate()
-}
-
 // MLabSnapshot in legacy code
 type PT struct {
 	test_id              string
 	project              int // 3 for PARIS_TRACEROUTE
 	log_time             int64
 	connection_spec      MLabConnectionSpecification
-	paris_traceroute_hop ParisTracerouteHop
+	paris_traceroute_hop []ParisTracerouteHop
 }
 
 type MLabConnectionSpecification struct {
