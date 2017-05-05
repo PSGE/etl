@@ -367,6 +367,9 @@ func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) (
 			// parts[6] should always be "ms"
 			// if there is parts[7], it should be hostname again like parts[3] ......
 			for i := 3; i < len(parts); i += 4 {
+                                if len(parts) < i+4 {
+                                    return nil, errors.New("incompleted hop data.")
+                                }
 				tuple_str := []string{parts[i], parts[i+1], parts[i+2], parts[i+3]}
 				ProcessOneTuple(tuple_str, protocal, current_leaves, &all_nodes, &new_leaves)
 			} // Done with a 4-tuple parsing
