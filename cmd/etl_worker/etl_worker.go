@@ -49,6 +49,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello world!")
 }
 
+//=======================================================================
 // Basic throttling to restrict the number of tasks in flight.
 var inFlight int32
 
@@ -77,6 +78,8 @@ func shouldThrottle() bool {
 func decrementInFlight() {
 	atomic.AddInt32(&inFlight, -1)
 }
+
+//=======================================================================
 
 func warmupHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"message": "Success"}`)
@@ -159,7 +162,7 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tr.Close()
 
-	ins, err := bq.NewInserter("mlab_sandbox", dataType)
+	ins, err := bq.NewInserter("mlab_sandbox", dataType, `_`+data.PackedDate)
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "NewInserterError").Inc()
 		log.Printf("Error creating BQ Inserter:  %v", err)

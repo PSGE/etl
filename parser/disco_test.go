@@ -92,7 +92,7 @@ func TestJSONParsing(t *testing.T) {
 // DISABLED
 // This tests insertion into a test table in the cloud.  Should not normally be executed.
 func xTestRealBackend(t *testing.T) {
-	ins, err := bq.NewInserter("mlab_sandbox", etl.SW)
+	ins, err := bq.NewInserter("mlab_sandbox", etl.SW, "")
 	var parser etl.Parser = parser.NewDiscoParser(ins)
 
 	meta := map[string]bigquery.Value{"filename": "filename", "parsetime": time.Now()}
