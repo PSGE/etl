@@ -21,6 +21,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
+	//	"google.golang.org/api/bigquery/v2" // For template table creation.
 
 	"github.com/m-lab/etl/etl"
 	"github.com/m-lab/etl/metrics"
@@ -30,9 +31,9 @@ import (
 // For now, 10K per row times 100 results is 1MB, which is an order of
 // magnitude below our 10MB max, so 100 might not be such a bad
 // default.
-func NewInserter(dataset string, dt etl.DataType) (etl.Inserter, error) {
+func NewInserter(dataset string, dt etl.DataType, suffix string) (etl.Inserter, error) {
 	return NewBQInserter(
-		etl.InserterParams{dataset, etl.DataTypeToTable[dt],
+		etl.InserterParams{dataset, etl.DataTypeToTable[dt] + suffix,
 			15 * time.Minute, 500}, nil)
 }
 

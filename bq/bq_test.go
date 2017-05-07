@@ -32,6 +32,48 @@ type Item struct {
 	Foobar int `json:"foobar"`
 }
 
+//==================================================================================
+// These tests hit the backend, to verify expected behavior of table creation and
+// access to partitions.  They deliberately have a leading "x" to prevent running
+// them in Travis.  We need to find a better way to control whether they run or
+// not.
+//==================================================================================
+func xTestTemplateTableCreation(t *testing.T) {
+	err := bq.CreateTable("mlab-sandbox", "mlab_sandbox", "test", "_suffix")
+	if err != nil {
+		t.Error(err)
+	} else {
+		// Delete the table?
+	}
+}
+
+func xTestRealPartitionInsert(t *testing.T) {
+	tag := "new"
+	items := []interface{}{
+		Item{Name: tag + "_x0", Count: 17, Foobar: 44},
+		Item{Name: tag + "_x1", Count: 12, Foobar: 44}}
+
+	in, err := bq.NewBQInserter(
+		etl.InserterParams{"mlab_sandbox", "test2$20170509", 10 * time.Second, 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = in.InsertRow(Item{Name: tag + "_x0", Count: 17, Foobar: 44}); err != nil {
+		t.Error(err)
+	}
+	if err = in.InsertRows(items); err != nil {
+		t.Error(err)
+	}
+
+	if in.Count() != 3 {
+		t.Error("Should have inserted three rows")
+	}
+	in.Flush()
+}
+
+//==================================================================================
+
 func TestBasicInsert(t *testing.T) {
 	tag := "new"
 	items := []interface{}{
