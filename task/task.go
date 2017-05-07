@@ -8,7 +8,6 @@ package task
 import (
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -51,14 +50,6 @@ func (tt *Task) ProcessAllTests() error {
 			if err == io.EOF {
 				break
 			}
-			// TODO(dev) Handle this error properly!
-			// TODO - fix dataType
-			// We are seeing these very rarely, maybe 1 per hour.
-			if strings.Contains(err.Error(), "stream error") {
-				metrics.TaskCount.WithLabelValues("NDT", "stream error").Inc()
-			} else {
-				metrics.TaskCount.WithLabelValues("NDT", "NextTest").Inc()
-			}
 			// We are seeing several of these per hour, a little more than
 			// one in one thousand files.  duration varies from 10 seconds up to several
 			// minutes.
@@ -81,8 +72,7 @@ func (tt *Task) ProcessAllTests() error {
 		err := tt.Parser.ParseAndInsert(tt.meta, testname, data)
 		if err != nil {
 			metrics.TaskCount.WithLabelValues(
-				// TODO - fix dataType
-				"NDT", "ParseAndInsertError").Inc()
+				"Task", "ParseAndInsertError").Inc()
 			log.Printf("%v", err)
 			// TODO(dev) Handle this error properly!
 			continue
