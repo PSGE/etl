@@ -2,13 +2,10 @@
 package main
 
 import (
-	"encoding/base64"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"runtime"
-	"strings"
 	"sync/atomic"
 
 	"github.com/m-lab/etl/bq"
@@ -52,36 +49,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello world!")
 }
 
-// TODO(dev) Add unit test
-func getFilename(filename string) (string, error) {
-	if strings.HasPrefix(filename, "gs://") {
-		return filename, nil
-	}
-
-	decode, err := base64.StdEncoding.DecodeString(filename)
-	if err != nil {
-		return "", errors.New("invalid file path: " + filename)
-	}
-	fn := string(decode[:])
-	if strings.HasPrefix(fn, "gs://") {
-		return fn, nil
-	}
-
-	return "", errors.New("invalid base64 encoded file path: " + fn)
-}
-
-func getDataType(fn string) etl.DataType {
-	fields := etl.TaskPattern.FindStringSubmatch(fn)
-	if fields == nil {
-		return etl.INVALID
-	}
-	dt, ok := etl.DirToDataType[fields[2]]
-	if !ok {
-		return etl.INVALID
-	}
-	return dt
-}
-
+//=======================================================================
 // Basic throttling to restrict the number of tasks in flight.
 var inFlight int32
 
@@ -111,6 +79,8 @@ func shouldThrottle() bool {
 func decrementInFlight() {
 	atomic.AddInt32(&inFlight, -1)
 }
+
+//=======================================================================
 
 func warmupHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"message": "Success"}`)
@@ -195,7 +165,7 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tr.Close()
 
-	ins, err := bq.NewInserter("mlab_sandbox", dataType)
+	ins, err := bq.NewInserter("mlab_sandbox", dataType, `_`+data.PackedDate)
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "NewInserterError").Inc()
 		log.Printf("Error creating BQ Inserter:  %v", err)
