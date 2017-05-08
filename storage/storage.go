@@ -52,6 +52,7 @@ func (rr *ETLSource) NextTest() (string, []byte, error) {
 		// TODO add unit test
 		zipReader, err := gzip.NewReader(rr)
 		if err != nil {
+			// TODO move this up to caller.
 			metrics.TaskCount.WithLabelValues("ETLSource", "zipReaderError").Inc()
 			return h.Name, nil, err
 		}
@@ -61,6 +62,7 @@ func (rr *ETLSource) NextTest() (string, []byte, error) {
 		data, err = ioutil.ReadAll(rr)
 	}
 	if err != nil {
+		// TODO move this up to caller.
 		// We are seeing these very rarely, maybe 1 per hour.
 		if strings.Contains(err.Error(), "stream error") {
 			metrics.TaskCount.WithLabelValues("ETLSource", "stream error").Inc()

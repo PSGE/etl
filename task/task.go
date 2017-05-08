@@ -42,10 +42,11 @@ func (tt *Task) ProcessAllTests() error {
 	metrics.WorkerState.WithLabelValues("task").Inc()
 	defer metrics.WorkerState.WithLabelValues("task").Dec()
 	files := 0
+	retries := 0
 	nilData := 0
 	// Read each file from the tar
 	for testname, data, err := tt.NextTest(); err != io.EOF; testname, data, err = tt.NextTest() {
-		files += 1
+		files++
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -53,6 +54,7 @@ func (tt *Task) ProcessAllTests() error {
 			// We are seeing several of these per hour, a little more than
 			// one in one thousand files.  duration varies from 10 seconds up to several
 			// minutes.
+			// TODO - These seem to be temporary.  Retry might succeed.
 			// Example:
 			// filename:gs://m-lab-sandbox/ndt/2016/04/10/20160410T000000Z-mlab1-ord02-ndt-0002.tgz
 			// files:666 duration:1m47.571825351s
@@ -60,7 +62,9 @@ func (tt *Task) ProcessAllTests() error {
 			// Because of the break, this error is passed up, and counted at the Task level.
 			log.Printf("filename:%s files:%d duration:%v err:%v",
 				tt.meta["filename"], files, time.Since(tt.meta["parse_time"].(time.Time)), err)
-			
+			metrics.TestCount.With(prometheus.Labels{
+				"table": tt.TableName(), "type": "NextTest.error"}).Inc()
+			retries++
 			continue
 		}
 		if data == nil {
@@ -73,7 +77,9 @@ func (tt *Task) ProcessAllTests() error {
 
 		err := tt.Parser.ParseAndInsert(tt.meta, testname, data)
 		if err != nil {
-			metrics.TaskCount.WithLabelValues(
+			// Currently, only NDT insert errors are returned, and they are recorded
+			// in the NDT parser as well.
+			metrics.TestCount.WithLabelValues(
 				"Task", "ParseAndInsertError").Inc()
 			log.Printf("%v", err)
 			// TODO(dev) Handle this error properly!
@@ -88,6 +94,6 @@ func (tt *Task) ProcessAllTests() error {
 		log.Printf("%v", err)
 	}
 	// TODO - make this debug or remove
-	log.Printf("%d files, %d nil data, %d rows", files, nilData, tt.Count())
+	log.Printf("%d files, %d retries, %d nil data, %d rows", files, retries, nilData, tt.Count())
 	return err
 }

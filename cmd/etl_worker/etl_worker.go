@@ -162,7 +162,8 @@ func worker(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tr.Close()
 
-	ins, err := bq.NewInserter("mlab_sandbox", dataType, `_`+data.PackedDate)
+	ins, err := bq.NewInserter("mlab_sandbox", dataType, "")
+	//ins, err := bq.NewInserter("mlab_sandbox", dataType, `_`+data.PackedDate)
 	if err != nil {
 		metrics.TaskCount.WithLabelValues(string(dataType), "NewInserterError").Inc()
 		log.Printf("Error creating BQ Inserter:  %v", err)
