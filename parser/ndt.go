@@ -352,17 +352,19 @@ func (n *NDTParser) processTest(taskFileName string, test *fileInfoAndData, test
 	defer w.Close()
 
 	// Seek to either last snapshot, or snapshot 2100 if there are more than that.
-	if !seek(w, n.TableName(), n.inserter.TableSuffix(), taskFileName, test.fn, testType) {
+	snap_count, ok := seek(w, n.TableName(), n.inserter.TableSuffix(),
+		taskFileName, test.fn, testType)
+	if !ok {
 		// TODO - is there a previous snapshot we can use???
 		return
 	}
 
-	n.getAndInsertValues(w, taskFileName, test, testType)
+	n.getAndInsertValues(w, count, taskFileName, test, testType)
 }
 
 // Find the "last" web100 snapshot.
 // Returns true if valid snapshot found.
-func seek(w *web100.Web100, tableName string, suffix string, taskFileName string, testName string, testType string) bool {
+func seek(w *web100.Web100, tableName string, suffix string, taskFileName string, testName string, testType string) (int, bool) {
 	metrics.WorkerState.WithLabelValues("seek").Inc()
 	defer metrics.WorkerState.WithLabelValues("seek").Dec()
 	// Limit to parsing only up to 2100 snapshots.
@@ -372,7 +374,7 @@ func seek(w *web100.Web100, tableName string, suffix string, taskFileName string
 		if err != nil {
 			if err == io.EOF {
 				// We expect EOF.
-				break
+				return count, true
 			} else {
 				// FYI - something like 1/5000 logs typically have these errors.
 				// They are things like "missing snaplog header" or "truncated".
@@ -384,7 +386,7 @@ func seek(w *web100.Web100, tableName string, suffix string, taskFileName string
 					tableName, suffix, testType, "w.Next").Inc()
 				log.Printf("w.Next error: %s processing snap %d from %s from %s\n",
 					err, count, testName, taskFileName)
-				return false
+				return count, false
 			}
 		}
 		// HACK - just to see how expensive the Values() call is...
@@ -400,10 +402,10 @@ func seek(w *web100.Web100, tableName string, suffix string, taskFileName string
 			}
 		}
 	}
-	return true
+	return count, true
 }
 
-func (n *NDTParser) getAndInsertValues(w *web100.Web100, taskFileName string, test *fileInfoAndData, testType string) {
+func (n *NDTParser) getAndInsertValues(w *web100.Web100, snap_count int, taskFileName string, test *fileInfoAndData, testType string) {
 	// Extract the values from the last snapshot.
 	metrics.WorkerState.WithLabelValues("parse").Inc()
 	defer metrics.WorkerState.WithLabelValues("parse").Dec()
@@ -431,6 +433,7 @@ func (n *NDTParser) getAndInsertValues(w *web100.Web100, taskFileName string, te
 	results["test_id"] = test.fn
 	results["task_filename"] = taskFileName
 	// This is the timestamp parsed from the filename.
+	// TODO - if the timestamp parsing succeeded, do we need the error check?
 	lt, err := test.info.Timestamp.MarshalText()
 	if err != nil {
 		log.Println(err)
@@ -449,6 +452,11 @@ func (n *NDTParser) getAndInsertValues(w *web100.Web100, taskFileName string, te
 	}
 
 	connSpec := schema.EmptyConnectionSpec()
+
+	anomolies := schema.Web100ValueMap{}
+	if n.metaFile.TestName == "" {
+		anomolies.SetBool("no_meta", true)
+	}
 	n.metaFile.PopulateConnSpec(connSpec)
 	switch testType {
 	case "c2s":
@@ -459,6 +467,13 @@ func (n *NDTParser) getAndInsertValues(w *web100.Web100, taskFileName string, te
 	}
 	results["connection_spec"] = connSpec
 
+	if snap_count != 2000 {
+		anomolies.SetInt64("num_snaps", snap_count)
+	}
+
+	if len(anomolies) > 0 {
+		results["anomolies"] = anomolies
+	}
 	fixValues(results)
 	err = n.inserter.InsertRow(&bq.MapSaver{results})
 	if err != nil {

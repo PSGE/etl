@@ -80,6 +80,11 @@ func (s Web100ValueMap) SetInt64(name string, value int64) {
 	s[name] = value
 }
 
+// SetBool saves a boolean in a field with the given name.
+func (s Web100ValueMap) SetInt64(name string, value bool) {
+	s[name] = value
+}
+
 // SetString saves a string in a field with the given name.
 func (s Web100ValueMap) SetString(name string, value string) {
 	s[name] = value
