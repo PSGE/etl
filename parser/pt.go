@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	//"github.com/m-lab/etl/bq"
@@ -63,9 +64,6 @@ type Node struct {
 	flow int
 }
 
-const IPv4_AF int32 = 2
-const IPv6_AF int32 = 10
-
 func NewPTParser(ins etl.Inserter) *PTParser {
 	return &PTParser{ins}
 }
@@ -87,8 +85,8 @@ func ProcessAllNodes(all_nodes []Node, server_IP, protocol string) []schema.Pari
 				Des_hostname: all_nodes[i].hostname,
 				Rtt:          all_nodes[i].rtts,
 				Src_ip:       server_IP,
-				Src_af:       IPv4_AF,
-				Dest_af:      IPv4_AF,
+				Src_af:       syscall.AF_INET,
+				Dest_af:      syscall.AF_INET,
 			}
 			results = append(results, *one_hop)
 			break
@@ -100,8 +98,8 @@ func ProcessAllNodes(all_nodes []Node, server_IP, protocol string) []schema.Pari
 				Rtt:          all_nodes[i].rtts,
 				Src_ip:       parent.ip,
 				Src_hostname: parent.hostname,
-				Src_af:       IPv4_AF,
-				Dest_af:      IPv4_AF,
+				Src_af:       syscall.AF_INET,
+				Dest_af:      syscall.AF_INET,
 			}
 			results = append(results, *one_hop)
 		}
@@ -320,9 +318,9 @@ func Parse(meta map[string]bigquery.Value, testName string, rawContent []byte) (
 
 	conn_spec := &schema.MLabConnectionSpecification{
 		Server_ip:      server_IP,
-		Server_af:      IPv4_AF,
+		Server_af:      syscall.AF_INET,
 		Client_ip:      dest_IP,
-		Client_af:      IPv4_AF,
+		Client_af:      syscall.AF_INET,
 		Data_direction: 0,
 	}
 
