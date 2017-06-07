@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -140,7 +141,7 @@ func (n *NDTParser) ParseAndInsert(taskInfo map[string]bigquery.Value, testName 
 		// test files anyway.
 		// TODO(dev) Handle case where we don't get a meta file on the last
 		// test in a task.
-		n.handleAnomolies(taskFileName)
+		n.handleAnomalies(taskFileName)
 
 		n.timestamp = info.Time
 		n.s2c = nil
@@ -148,6 +149,10 @@ func (n *NDTParser) ParseAndInsert(taskInfo map[string]bigquery.Value, testName 
 		n.metaFile = nil
 	}
 
+	// Because of port number, the c2s, s2c, and meta files may come in
+	// any order.  We process them as soon as we have both test.gz and meta files.
+	// TODO - should we just ignore non-gzipped test files?  Or do some archives
+	// have unzipped files?
 	switch info.Suffix {
 	case "c2s_snaplog":
 		if n.c2s != nil {
@@ -160,9 +165,13 @@ func (n *NDTParser) ParseAndInsert(taskInfo map[string]bigquery.Value, testName 
 					n.TableName(), "c2s", "timestamp collision").Inc()
 				log.Printf("Collision: %s and %s\n", n.c2s.fn, testName)
 			}
-		} else {
-			// We only take action on the first file, to avoid dups.
-			n.c2s = &fileInfoAndData{testName, *info, content}
+		}
+		// We always use the latest file, since .gz is more reliably
+		// complete, and lexicographically later.
+		n.c2s = &fileInfoAndData{testName, *info, content}
+		// If we already have the metafile, and the test is gzipped,
+		// then go ahead and process it.
+		if n.metaFile != nil && strings.HasSuffix(testName, ".gz") {
 			n.processTest(taskFileName, n.c2s, "c2s")
 		}
 	case "s2c_snaplog":
@@ -174,9 +183,13 @@ func (n *NDTParser) ParseAndInsert(taskInfo map[string]bigquery.Value, testName 
 					n.TableName(), "s2c", "timestamp collision").Inc()
 				log.Printf("Collision: %s and %s\n", n.s2c.fn, testName)
 			}
-		} else {
-			// We only take action on the first file, to avoid dups.
-			n.s2c = &fileInfoAndData{testName, *info, content}
+		}
+		// We always use the latest file, since .gz is more reliably
+		// complete, and lexicographically later.
+		n.s2c = &fileInfoAndData{testName, *info, content}
+		// If we already have the metafile, and the test is gzipped,
+		// then go ahead and process it.
+		if n.metaFile != nil && strings.HasSuffix(testName, ".gz") {
 			n.processTest(taskFileName, n.s2c, "s2c")
 		}
 	case "meta":
@@ -205,36 +218,48 @@ func (n *NDTParser) ParseAndInsert(taskInfo map[string]bigquery.Value, testName 
 }
 
 // In the case that we are missing one or more files, report and handle gracefully.
-func (n *NDTParser) handleAnomolies(taskFileName string) {
-	switch {
-	case n.metaFile == nil:
+func (n *NDTParser) handleAnomalies(taskFileName string) {
+	if n.metaFile == nil {
+		// Process any test files.
 		n.metaFile = &MetaFileData{} // Hack to allow processTest to run.
 		if n.s2c != nil {
+			// TODO Add a log once noise is reduced.
 			metrics.WarningCount.WithLabelValues(
 				n.TableName(), "s2c", "no meta").Inc()
-			// TODO Add a log once noise is reduced.
 			n.processTest(taskFileName, n.s2c, "s2c")
 		}
 		if n.c2s != nil {
+			// TODO Add a log once noise is reduced.
 			metrics.WarningCount.WithLabelValues(
 				n.TableName(), "c2s", "no meta").Inc()
-			// TODO Add a log once noise is reduced.
 			n.processTest(taskFileName, n.c2s, "c2s")
 		}
 		if n.s2c == nil && n.c2s == nil {
 			metrics.WarningCount.WithLabelValues(
 				n.TableName(), "test", "no meta,c2s,s2c").Inc()
 		}
-	// Now meta is non-nil
-	case n.s2c == nil && n.c2s == nil:
-		// Meta file but no test file.
-		metrics.WarningCount.WithLabelValues(
-			n.TableName(), "meta", "no tests").Inc()
-		log.Printf("No tests: %s %s\n", taskFileName, n.metaFile.TestName)
-	// Now meta and at least one test are non-nil
-	default:
-		// We often only get meta + one, so no
-		// need to log this.
+	} else {
+		// If we got the meta file first, but got only non-gzipped test
+		// files, then we must process those now.
+		if n.s2c != nil && !strings.HasSuffix(n.s2c.fn, ".gz") {
+			// TODO Add a log once noise is reduced.
+			metrics.WarningCount.WithLabelValues(
+				n.TableName(), "s2c", "no .gz file").Inc()
+			n.processTest(taskFileName, n.s2c, "s2c")
+		}
+		if n.c2s != nil && !strings.HasSuffix(n.c2s.fn, ".gz") {
+			// TODO Add a log once noise is reduced.
+			metrics.WarningCount.WithLabelValues(
+				n.TableName(), "c2s", "no .gz file").Inc()
+			n.processTest(taskFileName, n.c2s, "c2s")
+		}
+
+		if n.s2c == nil && n.c2s == nil {
+			// Meta file but no test file.
+			metrics.WarningCount.WithLabelValues(
+				n.TableName(), "meta", "no tests").Inc()
+			log.Printf("No tests: %s %s\n", taskFileName, n.metaFile.TestName)
+		}
 	}
 }
 
@@ -350,8 +375,7 @@ func (n *NDTParser) getAndInsertValues(taskFileName string, test *fileInfoAndDat
 
 	results := schema.NewWeb100MinimalRecord(
 		snaplog.Version, int64(snaplog.LogTime),
-		(map[string]bigquery.Value)(nestedConnSpec),
-		(map[string]bigquery.Value)(snapValues))
+		nestedConnSpec, snapValues)
 
 	results["test_id"] = test.fn
 	results["task_filename"] = taskFileName

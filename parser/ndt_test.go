@@ -72,7 +72,7 @@ func TestNDTParser(t *testing.T) {
 	}
 
 	meta := map[string]bigquery.Value{"filename": "tarfile.tgz"}
-	err = n.ParseAndInsert(meta, s2cName, s2cData)
+	err = n.ParseAndInsert(meta, s2cName+".gz", s2cData)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -119,7 +119,7 @@ func TestNDTParser(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	err = n.ParseAndInsert(meta, c2sName, c2sData)
+	err = n.ParseAndInsert(meta, c2sName+".gz", c2sData)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
