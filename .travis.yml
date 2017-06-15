@@ -153,6 +153,18 @@ deploy:
     all_branches: true
     condition: $TRAVIS_BRANCH == qp-sandbox-*
 
+# STAGING: Should be used AFTER code review and commit to dev branch.  Triggers
+# when *ANY* branch is tagged with ndt-staging-*'
+- provider: script
+  script: $TRAVIS_BUILD_DIR/travis/deploy_app.sh mlab-staging
+    /tmp/mlab-staging.json $TRAVIS_BUILD_DIR/appengine/queue_pusher app.yaml
+  skip_cleanup: true
+  on:
+    repo: m-lab/etl
+    all_branches: true
+    tag: true
+    condition: $TRAVIS_TAG == pusher-staging-*
+
 # NOTE: Cloud functions only support primitive IAM roles: Owner, Editor, Viewer.
 # See: https://cloud.google.com/functions/docs/concepts/iam
 # TODO(soltesz): Add deployment automation when fine-grained permissions are
